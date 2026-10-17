@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+    <head>
+        <meta charset="UTF-8">
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+    </head>
+    <body>
+        <div th:fragment="sidebar">
+            <div id="sidebar">
+                <h4 class="text-center py-3">Pediu Patrão</h4>
+                
+                <!-- Informações do usuário logado -->
+                <div class="px-3 py-2 mb-2 text-center bg-dark text-white rounded mx-2 small border border-secondary" 
+                     th:if="${usuarioLogado != null}">
+                    <div>
+                        <i class="bi bi-person-circle text-primary me-1"></i>
+                        <strong th:text="${usuarioLogado}">Usuário</strong>
+                    </div>
+                    <div class="mt-1">
+                        <span class="badge"
+                              th:classappend="${perfilLogado == 'ADMIN'} ? 'bg-danger' : 
+                                              (${perfilLogado == 'GERENTE'} ? 'bg-warning text-dark' : 'bg-info text-dark')"
+                              th:text="${perfilLogado}">PERFIL</span>
+                    </div>
+                </div>
+
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/}" aria-current="page">
+                            <i class="bi bi-house"></i><span class="d-none d-md-inline">&nbsp;Home</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/clientes}">
+                            <i class="bi bi-person-raised-hand"></i><span class="d-none d-md-inline">&nbsp;Clientes</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/pedidos}">
+                            <i class="bi bi-bag"></i><span class="d-none d-md-inline">&nbsp;Pedidos</span>
+                        </a>
+                    </li>
+                    <!-- Auditoria visível apenas para ADMIN e GERENTE -->
+                    <li class="nav-item" th:if="${perfilLogado == 'ADMIN' or perfilLogado == 'GERENTE'}">
+                        <a class="nav-link" th:href="@{/auditoria}">
+                            <i class="bi bi-shield-check"></i><span class="d-none d-md-inline">&nbsp;Auditoria</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" onclick="toggleSubmenu(event, this)">
+                            <i class="bi bi-gear"></i><span class="d-none d-md-inline">&nbsp;Configurações</span>
+                            <span class="float-end">&#9662;</span> <!-- Setinha -->
+                        </a>
+                        <ul class="nav flex-column submenu">
+                            <li class="nav-item">
+                                <a class="nav-link" th:href="@{/produtos}">
+                                    <i class="bi bi-boxes"></i><span class="d-none d-md-inline">&nbsp;Produtos</span>
+                                </a>
+                            </li>
+                            <!-- Usuários visível apenas para ADMIN -->
+                            <li class="nav-item" th:if="${perfilLogado == 'ADMIN'}">
+                                <a class="nav-link" th:href="@{/usuarios}">
+                                    <i class="bi bi-people-fill"></i><span class="d-none d-md-inline">&nbsp;Usuários</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    <!-- Botão de Logout -->
+                    <li class="nav-item mt-3 px-3">
+                        <form th:action="@{/logout}" method="post">
+                            <button type="submit" class="btn btn-outline-danger btn-sm w-100">
+                                <i class="bi bi-box-arrow-right"></i> Sair
+                            </button>
+                        </form>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </body>
+</html>

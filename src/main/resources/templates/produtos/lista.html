@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Gestão de Produtos</title>
+</head>
+<body>
+
+<div th:fragment="content">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold mb-0">
+            <i class="bi bi-boxes me-2 text-primary"></i>Gestão de Produtos
+        </h2>
+        <a href="/produtos/novo" class="btn btn-primary" th:if="${isGerente or isAdmin or perfilLogado == 'ADMIN' or perfilLogado == 'GERENTE'}">
+            <i class="bi bi-plus-lg me-1"></i> Novo Produto
+        </a>
+    </div>
+
+    <!-- Mensagens de feedback -->
+    <div class="alert alert-success alert-dismissible fade show" th:if="${sucesso}" role="alert">
+        <i class="bi bi-check-circle-fill me-2"></i>
+        <span th:text="${sucesso}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    <div class="alert alert-danger alert-dismissible fade show" th:if="${erro}" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        <span th:text="${erro}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+
+    <!-- Listagem de Produtos -->
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th class="ps-4" style="width: 60px;">#</th>
+                            <th>Nome</th>
+                            <th>Tipo</th>
+                            <th>Preço</th>
+                            <th>Status</th>
+                            <th class="text-end pe-4" style="width: 180px;" th:if="${isGerente or isAdmin or perfilLogado == 'ADMIN' or perfilLogado == 'GERENTE'}">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${#lists.isEmpty(produtos)}">
+                            <td th:colspan="${isGerente or isAdmin or perfilLogado == 'ADMIN' or perfilLogado == 'GERENTE' ? 6 : 5}" class="text-center text-muted py-5">
+                                <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+                                Nenhum produto cadastrado no momento.
+                            </td>
+                        </tr>
+                        <tr th:each="produto, stat : ${produtos}">
+                            <td class="ps-4 text-muted small" th:text="${stat.index + 1}"></td>
+                            <td>
+                                <strong th:text="${produto.nome}"></strong>
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark border" th:text="${produto.tipo}"></span>
+                            </td>
+                            <td class="fw-bold text-success" 
+                                th:text="${produto.preco != null ? 'R$ ' + #numbers.formatDecimal(produto.preco, 1, 2) : '-'}">
+                            </td>
+                            <td>
+                                <span class="badge" th:classappend="${produto.ativo != null and produto.ativo} ? 'bg-success' : 'bg-secondary'"
+                                      th:text="${produto.ativo != null and produto.ativo ? 'Ativo' : 'Inativo'}"></span>
+                            </td>
+                            <td class="text-end pe-4" th:if="${isGerente or isAdmin or perfilLogado == 'ADMIN' or perfilLogado == 'GERENTE'}">
+                                <a th:href="@{/produtos/editar/{id}(id=${produto.id})}"
+                                   class="btn btn-sm btn-outline-primary me-1">
+                                    <i class="bi bi-pencil-fill"></i> Editar
+                                </a>
+                                <form th:action="@{/produtos/deletar/{id}(id=${produto.id})}"
+                                      method="post" class="d-inline"
+                                      onsubmit="return confirm('Deseja realmente excluir este produto?')">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        <i class="bi bi-trash-fill"></i> Excluir
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer text-muted small" th:if="${!#lists.isEmpty(produtos)}">
+            Total: <strong th:text="${#lists.size(produtos)}"></strong> produto(s)
+        </div>
+    </div>
+
+</div>
+
+</body>
+</html>
