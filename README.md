@@ -4,7 +4,7 @@ Evolucao do sistema web Pediu Patrao desenvolvido em Java com Spring Boot e Mong
 
 ## Demonstracao em Video
 O video de demonstracao da Dashboard do projeto esta disponivel no repositorio:
-- https://www.youtube.com/watch?v=XoE6NPIQ2mM
+- [https://www.youtube.com/watch?v=XoE6NPIQ2mM](https://youtu.be/yy8tlsqAS-w?si=9Rzux2xQtZS0NbtY)
 
 ---
 
