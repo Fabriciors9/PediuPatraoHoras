@@ -60,6 +60,7 @@ public class SecurityConfig {
                         
                         // RF05: Consulta de auditoria liberada exclusivamente para ADMIN e GERENTE
                         .requestMatchers("/auditoria/**", "/api/auditoria/**").hasAnyRole("ADMIN", "GERENTE")
+                        .requestMatchers("/dashboard", "/dashboard/**", "/api/dashboard/**").hasAnyRole("ADMIN", "GERENTE")
                         
                         // RF01 e RF04: Apenas GERENTE pode aplicar descontos ou cancelar pedidos
                         .requestMatchers("/pedidos/cancelar/**", "/pedidos/desconto/**",
