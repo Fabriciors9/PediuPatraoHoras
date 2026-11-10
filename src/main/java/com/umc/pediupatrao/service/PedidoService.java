@@ -1,10 +1,16 @@
 package com.umc.pediupatrao.service;
 
 import com.umc.pediupatrao.entity.Pedido;
+import com.umc.pediupatrao.entity.Produto;
 import com.umc.pediupatrao.repository.PedidoRepository;
+import com.umc.pediupatrao.repository.ProdutoRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class PedidoService {
@@ -13,37 +19,47 @@ public class PedidoService {
     private PedidoRepository pedidoRepository;
 
     @Autowired
+    private ProdutoRepository produtoRepository;
+
+    @Autowired
     private AuditoriaService auditoriaService;
 
-    // RF02: Criação de pedido com valores calculados no servidor
+    // Criacao de pedido com busca de preco no catalogo
+    @Transactional
     public Pedido criarPedido(Pedido pedido) {
         pedido.setStatus("RECEBIDO");
-        pedido.setDataHoraEntrada(java.time.LocalDateTime.now());
+        pedido.setDataHoraEntrada(LocalDateTime.now());
         pedido.setResponsavelRegistro(auditoriaService.getUsuarioAtual());
 
-        // Tamanho padrão fixo em 8 fatias
         if (pedido.getTipoPizza() == null || pedido.getTipoPizza().trim().isEmpty()) {
             pedido.setTipoPizza("8 fatias");
         }
 
-        // Preço padrão se não informado
-        if (pedido.getPrecoUnitario() == null || pedido.getPrecoUnitario() <= 0) {
-            pedido.setPrecoUnitario(45.0); // preço médio de pizza na casa
+        // Pega o preco direto do cadastro do produto para evitar manipulacao pelo cliente
+        double precoCalculado = 45.0;
+        if (pedido.getSabor() != null && !pedido.getSabor().trim().isEmpty()) {
+            Optional<Produto> produtoOptional = produtoRepository.findAll().stream()
+                    .filter(p -> p.getNome().trim().equalsIgnoreCase(pedido.getSabor().trim()))
+                    .findFirst();
+
+            if (produtoOptional.isPresent() && produtoOptional.get().getPreco() != null) {
+                precoCalculado = produtoOptional.get().getPreco();
+            }
         }
+        pedido.setPrecoUnitario(precoCalculado);
+
         if (pedido.getQuantidade() <= 0) {
             pedido.setQuantidade(1);
         }
 
-        // Não permite desconto no ato de criação por atendente (desconto é exclusivo do gerente)
         pedido.setPercentualDesconto(0.0);
         pedido.calcularValores();
 
         Pedido salvo = pedidoRepository.save(pedido);
 
-        // RF05: Auditoria de novo pedido
         auditoriaService.registrar("CRIACAO_PEDIDO", "Pedido", salvo.getId(),
                 "Pedido cadastrado por " + salvo.getResponsavelRegistro() + " - " + salvo.getQuantidade() + 
-                "x " + salvo.getSabor() + " - Total calculado: R$ " + salvo.getValorTotal());
+                "x " + salvo.getSabor() + " (R$ " + precoCalculado + " un) - Total calculado: R$ " + salvo.getValorTotal());
 
         return salvo;
     }
@@ -54,72 +70,69 @@ public class PedidoService {
 
     public Pedido buscarPorId(String id) {
         return pedidoRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Pedido não encontrado: " + id));
+                .orElseThrow(() -> new IllegalArgumentException("Pedido nao encontrado: " + id));
     }
 
-    // RF03: Controle estrito de transições de status
+    // Transicoes de status do pedido
+    @Transactional
     public Pedido atualizarStatus(String id, String novoStatus) {
         Pedido pedido = buscarPorId(id);
         String statusAtual = pedido.getStatus() != null ? pedido.getStatus().toUpperCase() : "RECEBIDO";
         String statusDestino = novoStatus != null ? novoStatus.toUpperCase() : "";
 
-        // Se já está cancelado, bloqueia qualquer mudança
         if ("CANCELADO".equals(statusAtual)) {
-            throw new IllegalStateException("O pedido #" + id + " está CANCELADO e não pode ter o status alterado.");
+            throw new IllegalStateException("O pedido #" + id + " esta cancelado e nao pode mudar de status.");
         }
-
-        // Se já está finalizado, encerrou o fluxo
         if ("FINALIZADO".equals(statusAtual)) {
-            throw new IllegalStateException("O pedido #" + id + " já está FINALIZADO.");
+            throw new IllegalStateException("O pedido #" + id + " ja esta finalizado.");
         }
 
-        // Validação da máquina de estados obrigatória (RF03)
         boolean transicaoValida = false;
-
         if ("RECEBIDO".equals(statusAtual) && ("EM_PREPARACAO".equals(statusDestino) || "EM_PREPARO".equals(statusDestino))) {
             transicaoValida = true;
         } else if (("EM_PREPARACAO".equals(statusAtual) || "EM_PREPARO".equals(statusAtual)) && "PRONTO".equals(statusDestino)) {
             transicaoValida = true;
         } else if ("PRONTO".equals(statusAtual) && ("SAIU_PARA_ENTREGA".equals(statusDestino) || "RETIRADO".equals(statusDestino))) {
             transicaoValida = true;
-            // RF03: Registrar obrigatoriamente data/hora e responsável pela saída
-            pedido.setDataHoraSaida(java.time.LocalDateTime.now());
+            pedido.setDataHoraSaida(LocalDateTime.now());
             pedido.setResponsavelSaida(auditoriaService.getUsuarioAtual());
         } else if (("SAIU_PARA_ENTREGA".equals(statusAtual) || "RETIRADO".equals(statusAtual)) && "FINALIZADO".equals(statusDestino)) {
             transicaoValida = true;
         }
 
         if (!transicaoValida) {
-            throw new IllegalArgumentException("Transição inválida! Não é permitido mudar de '" + statusAtual + "' para '" + statusDestino + "'. Siga o fluxo: RECEBIDO -> EM_PREPARACAO -> PRONTO -> SAIU_PARA_ENTREGA/RETIRADO -> FINALIZADO.");
+            throw new IllegalArgumentException("Transicao invalida de '" + statusAtual + "' para '" + statusDestino + "'. Fluxo: RECEBIDO -> EM_PREPARACAO -> PRONTO -> SAIU_PARA_ENTREGA/RETIRADO -> FINALIZADO.");
         }
 
         pedido.setStatus(statusDestino);
         Pedido atualizado = pedidoRepository.save(pedido);
 
-        // RF05: Auditoria de transição de status
         auditoriaService.registrarMudancaCampo("TRANSICAO_STATUS", "Pedido", id, "status", 
                 statusAtual, statusDestino, "Status alterado de " + statusAtual + " para " + statusDestino, null);
 
         return atualizado;
     }
 
-    // RF04: Aplicação de desconto exclusiva do GERENTE (máx 20% e antes da saída)
+    // Desconto exclusivo do gerente, apenas antes da saida
+    @Transactional
     public Pedido aplicarDesconto(String id, Double percentual) {
         String perfil = auditoriaService.getPerfilAtual();
         if (!"GERENTE".equalsIgnoreCase(perfil)) {
-            throw new SecurityException("Acesso negado: Somente o GERENTE tem permissão para conceder descontos.");
+            throw new SecurityException("Acesso negado: Somente o gerente pode aplicar descontos.");
         }
 
         if (percentual == null || percentual < 0 || percentual > 20.0) {
-            throw new IllegalArgumentException("O desconto deve ser entre 0% e 20.0% (limite do RF04).");
+            throw new IllegalArgumentException("O desconto deve ficar entre 0% e 20.0%.");
         }
 
         Pedido pedido = buscarPorId(id);
         String status = pedido.getStatus() != null ? pedido.getStatus().toUpperCase() : "";
 
-        // Só não pode aplicar se o pedido já estiver finalizado ou cancelado
-        if ("FINALIZADO".equals(status) || "CANCELADO".equals(status)) {
-            throw new IllegalStateException("Desconto não permitido! O pedido já foi finalizado ou cancelado.");
+        // Nao permite desconto se o pedido ja saiu para entrega ou foi finalizado
+        if ("SAIU_PARA_ENTREGA".equals(status) || "RETIRADO".equals(status) 
+                || "FINALIZADO".equals(status) || "CANCELADO".equals(status) 
+                || pedido.getDataHoraSaida() != null) {
+            throw new IllegalStateException("Desconto bloqueado: pedido ja saiu para entrega ou foi concluido.");
         }
 
         Double totalAntigo = pedido.getValorTotal();
@@ -130,32 +143,37 @@ public class PedidoService {
 
         Pedido salvo = pedidoRepository.save(pedido);
 
-        // RF05: Auditoria de desconto aplicado ou removido
-        String descMsg = percentual == 0.0 ? "Desconto removido pelo Gerente. Total anterior: R$ " + totalAntigo + " -> Novo total: R$ " + salvo.getValorTotal() : "Desconto de " + percentual + "% aplicado pelo gerente. Total anterior: R$ " + totalAntigo + " -> Novo total: R$ " + salvo.getValorTotal();
+        String descMsg = percentual == 0.0 ? 
+                "Desconto removido pelo gerente. Total anterior: R$ " + totalAntigo + " -> Novo total: R$ " + salvo.getValorTotal() :
+                "Desconto de " + percentual + "% aplicado pelo gerente. Total anterior: R$ " + totalAntigo + " -> Novo total: R$ " + salvo.getValorTotal();
+
         auditoriaService.registrarMudancaCampo("DESCONTO_PEDIDO", "Pedido", id, "percentualDesconto",
-                String.valueOf(descAntigo) + "%", String.valueOf(percentual) + "%",
-                descMsg,
-                percentual == 0.0 ? "Desconto zerado/removido pelo Gerente" : "Desconto comercial autorizado pelo Gerente");
+                String.valueOf(descAntigo) + "%", String.valueOf(percentual) + "%", descMsg,
+                percentual == 0.0 ? "Desconto zerado pelo gerente" : "Desconto autorizado pelo gerente");
 
         return salvo;
     }
 
-    // RF03 e RF04: Cancelamento exclusivo do GERENTE com justificativa
+    // Cancelamento com justificativa, apenas antes da saida
+    @Transactional
     public Pedido cancelarPedido(String id, String justificativa) {
         String perfil = auditoriaService.getPerfilAtual();
         if (!"GERENTE".equalsIgnoreCase(perfil)) {
-            throw new SecurityException("Acesso negado: Somente o GERENTE tem autorização para cancelar pedidos.");
+            throw new SecurityException("Acesso negado: Somente o gerente pode cancelar pedidos.");
         }
 
         if (justificativa == null || justificativa.trim().isEmpty()) {
-            throw new IllegalArgumentException("A justificativa do cancelamento é obrigatória (RF04).");
+            throw new IllegalArgumentException("A justificativa do cancelamento e obrigatoria.");
         }
 
         Pedido pedido = buscarPorId(id);
         String status = pedido.getStatus() != null ? pedido.getStatus().toUpperCase() : "";
 
-        if ("CANCELADO".equals(status) || "FINALIZADO".equals(status)) {
-            throw new IllegalStateException("Não é permitido cancelar pedido que já foi finalizado ou cancelado.");
+        // Nao cancela se ja saiu da pizzaria
+        if ("SAIU_PARA_ENTREGA".equals(status) || "RETIRADO".equals(status) 
+                || "FINALIZADO".equals(status) || "CANCELADO".equals(status)
+                || pedido.getDataHoraSaida() != null) {
+            throw new IllegalStateException("Cancelamento bloqueado: pedido ja saiu para entrega ou foi finalizado.");
         }
 
         String statusAnterior = pedido.getStatus();
@@ -164,13 +182,10 @@ public class PedidoService {
 
         Pedido salvo = pedidoRepository.save(pedido);
 
-        // RF05: Auditoria de cancelamento com justificativa
         auditoriaService.registrarMudancaCampo("CANCELAMENTO_PEDIDO", "Pedido", id, "status",
                 statusAnterior, "CANCELADO", 
-                "Pedido cancelado pelo Gerente. Justificativa: " + justificativa, 
-                justificativa);
+                "Pedido cancelado pelo gerente. Justificativa: " + justificativa, justificativa);
 
         return salvo;
     }
-
 }

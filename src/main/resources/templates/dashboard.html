@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="content">
+    <div class="container-fluid px-3 py-2">
+        <!-- Topo: Titulo e filtros de data -->
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 pb-2 border-bottom">
+            <div>
+                <h2 class="h3 mb-0 text-dark fw-bold">
+                    <i class="bi bi-speedometer2 text-primary me-2"></i>Dashboard Administrativo
+                </h2>
+                <small class="text-muted">Acompanhamento de vendas e pedidos em tempo real</small>
+            </div>
+            <div class="d-flex align-items-center gap-2 mt-2 mt-md-0">
+                <div class="btn-group btn-group-sm" role="group">
+                    <button type="button" class="btn btn-outline-primary" onclick="setFiltroRapido('hoje')">Hoje</button>
+                    <button type="button" class="btn btn-outline-primary" onclick="setFiltroRapido('7d')">7 Dias</button>
+                    <button type="button" class="btn btn-primary active" onclick="setFiltroRapido('30d')">30 Dias</button>
+                    <button type="button" class="btn btn-outline-primary" onclick="setFiltroRapido('mes')">Este Mes</button>
+                </div>
+                <div class="d-flex align-items-center gap-1">
+                    <input type="date" id="filtroInicio" class="form-control form-control-sm">
+                    <span class="text-muted">ate</span>
+                    <input type="date" id="filtroFim" class="form-control form-control-sm">
+                    <button class="btn btn-sm btn-dark" onclick="carregarDadosDashboard()" title="Filtrar">
+                        <i class="bi bi-funnel-fill"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cards de indicadores -->
+        <div class="row g-3 mb-4">
+            <div class="col-12 col-sm-6 col-xl-3">
+                <div class="card shadow-sm border-0 border-start border-primary border-4 h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted text-uppercase fw-semibold mb-1 small">Faturamento Total</h6>
+                                <h3 class="fw-bold mb-0 text-primary" id="kpiFaturamento">R$ 0,00</h3>
+                            </div>
+                            <div class="bg-primary bg-opacity-10 p-3 rounded-circle text-primary">
+                                <i class="bi bi-currency-dollar fs-4"></i>
+                            </div>
+                        </div>
+                        <small class="text-muted mt-2 d-block"><span id="kpiPedidosFaturados">0</span> pedidos faturados</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-sm-6 col-xl-3">
+                <div class="card shadow-sm border-0 border-start border-success border-4 h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted text-uppercase fw-semibold mb-1 small">Total de Pedidos</h6>
+                                <h3 class="fw-bold mb-0 text-success" id="kpiQtdPedidos">0</h3>
+                            </div>
+                            <div class="bg-success bg-opacity-10 p-3 rounded-circle text-success">
+                                <i class="bi bi-bag-check fs-4"></i>
+                            </div>
+                        </div>
+                        <small class="text-muted mt-2 d-block">Volume total no periodo</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-sm-6 col-xl-3">
+                <div class="card shadow-sm border-0 border-start border-info border-4 h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted text-uppercase fw-semibold mb-1 small">Ticket Medio</h6>
+                                <h3 class="fw-bold mb-0 text-info" id="kpiTicketMedio">R$ 0,00</h3>
+                            </div>
+                            <div class="bg-info bg-opacity-10 p-3 rounded-circle text-info">
+                                <i class="bi bi-calculator fs-4"></i>
+                            </div>
+                        </div>
+                        <small class="text-muted mt-2 d-block">Media por pedido concluido</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-sm-6 col-xl-3">
+                <div class="card shadow-sm border-0 border-start border-warning border-4 h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted text-uppercase fw-semibold mb-1 small">Descontos Concedidos</h6>
+                                <h3 class="fw-bold mb-0 text-warning" id="kpiTotalDescontos">R$ 0,00</h3>
+                            </div>
+                            <div class="bg-warning bg-opacity-10 p-3 rounded-circle text-warning">
+                                <i class="bi bi-tag fs-4"></i>
+                            </div>
+                        </div>
+                        <small class="text-muted mt-2 d-block"><span id="kpiQtdDescontos">0</span> pedidos com desconto</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Graficos de vendas e status -->
+        <div class="row g-3 mb-4">
+            <div class="col-12 col-lg-8">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0 fw-bold text-dark"><i class="bi bi-graph-up text-primary me-2"></i>Evolucao de Vendas</h6>
+                        <span class="badge bg-light text-dark border" id="badgePeriodoGrafico">Carregando...</span>
+                    </div>
+                    <div class="card-body">
+                        <div style="height: 300px;">
+                            <canvas id="chartEvolucaoVendas"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-lg-4">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-header bg-white py-3">
+                        <h6 class="mb-0 fw-bold text-dark"><i class="bi bi-pie-chart text-info me-2"></i>Situacao dos Pedidos</h6>
+                    </div>
+                    <div class="card-body d-flex flex-column justify-content-center align-items-center">
+                        <div style="height: 250px; width: 100%;">
+                            <canvas id="chartStatusPedidos"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ranking dos mais vendidos e cancelamentos -->
+        <div class="row g-3">
+            <div class="col-12 col-lg-8">
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-white py-3">
+                        <h6 class="mb-0 fw-bold text-dark"><i class="bi bi-trophy text-warning me-2"></i>Produtos Mais Vendidos</h6>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Produto / Sabor</th>
+                                        <th class="text-center">Qtd. Vendida</th>
+                                        <th class="text-end">Receita</th>
+                                        <th style="width: 25%;">Participacao</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabelaTopProdutos">
+                                    <tr><td colspan="4" class="text-center py-4 text-muted">Carregando dados...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-lg-4">
+                <div class="card shadow-sm border-0 border-start border-danger border-4 h-100">
+                    <div class="card-header bg-white py-3">
+                        <h6 class="mb-0 fw-bold text-danger"><i class="bi bi-x-octagon me-2"></i>Cancelamentos</h6>
+                    </div>
+                    <div class="card-body text-center d-flex flex-column justify-content-center">
+                        <h1 class="display-5 fw-bold text-danger mb-0" id="kpiCancelados">0</h1>
+                        <p class="text-muted mb-2">pedidos cancelados</p>
+                        <div class="progress mb-2" style="height: 10px;">
+                            <div class="progress-bar bg-danger" id="progressoCancelamento" style="width: 0%;"></div>
+                        </div>
+                        <small class="text-muted">Taxa de cancelamento: <strong id="kpiTaxaCancelamento">0%</strong></small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script>
+        let chartVendasInstance = null;
+        let chartStatusInstance = null;
+
+        document.addEventListener("DOMContentLoaded", () => {
+            setFiltroRapido('30d');
+        });
+
+        function setFiltroRapido(tipo) {
+            const fim = new Date();
+            let inicio = new Date();
+
+            if (tipo === 'hoje') {
+                inicio = new Date();
+            } else if (tipo === '7d') {
+                inicio.setDate(fim.getDate() - 7);
+            } else if (tipo === '30d') {
+                inicio.setDate(fim.getDate() - 30);
+            } else if (tipo === 'mes') {
+                inicio = new Date(fim.getFullYear(), fim.getMonth(), 1);
+            }
+
+            document.getElementById('filtroInicio').value = formatarDataInput(inicio);
+            document.getElementById('filtroFim').value = formatarDataInput(fim);
+            carregarDadosDashboard();
+        }
+
+        function formatarDataInput(data) {
+            const y = data.getFullYear();
+            const m = String(data.getMonth() + 1).padStart(2, '0');
+            const d = String(data.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        function formatarMoeda(valor) {
+            return (valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        }
+
+        async function carregarDadosDashboard() {
+            const inicio = document.getElementById('filtroInicio').value;
+            const fim = document.getElementById('filtroFim').value;
+
+            let url = '/api/dashboard/resumo-completo';
+            if (inicio && fim) {
+                url += `?inicio=${inicio}&fim=${fim}`;
+            }
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`Erro HTTP: ${response.status}`);
+                }
+                const data = await response.json();
+                renderizarDashboard(data);
+            } catch (err) {
+                console.error("Erro ao carregar dados:", err);
+            }
+        }
+
+        function renderizarDashboard(data) {
+            const m = data.metricas || {};
+            document.getElementById('kpiFaturamento').textContent = formatarMoeda(m.faturamentoTotal);
+            document.getElementById('kpiPedidosFaturados').textContent = m.pedidosFaturados || 0;
+            document.getElementById('kpiQtdPedidos').textContent = m.quantidadePedidos || 0;
+            document.getElementById('kpiTicketMedio').textContent = formatarMoeda(m.ticketMedio);
+            document.getElementById('kpiTotalDescontos').textContent = formatarMoeda(m.totalDescontos);
+            document.getElementById('kpiQtdDescontos').textContent = m.pedidosComDesconto || 0;
+            document.getElementById('kpiCancelados').textContent = m.pedidosCancelados || 0;
+            document.getElementById('kpiTaxaCancelamento').textContent = `${(m.taxaCancelamento || 0).toFixed(1)}%`;
+            document.getElementById('progressoCancelamento').style.width = `${Math.min(m.taxaCancelamento || 0, 100)}%`;
+
+            if (data.periodo) {
+                document.getElementById('badgePeriodoGrafico').textContent = `${data.periodo.inicio} ate ${data.periodo.fim}`;
+            }
+
+            renderizarGraficoVendas(data.vendasTempo || []);
+            renderizarGraficoStatus(data.statusPedidos || []);
+            renderizarTabelaTopProdutos(data.topProdutos || []);
+        }
+
+        function renderizarGraficoVendas(vendas) {
+            const ctx = document.getElementById('chartEvolucaoVendas').getContext('2d');
+            const labels = vendas.map(v => v.data);
+            const totais = vendas.map(v => v.totalVendas);
+
+            if (chartVendasInstance) {
+                chartVendasInstance.destroy();
+            }
+
+            chartVendasInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Faturamento (R$)',
+                        data: totais,
+                        borderColor: '#0d6efd',
+                        backgroundColor: 'rgba(13, 110, 253, 0.08)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#0d6efd'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: val => 'R$ ' + val
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderizarGraficoStatus(statusLista) {
+            const ctx = document.getElementById('chartStatusPedidos').getContext('2d');
+            const labels = statusLista.map(s => s.status);
+            const valores = statusLista.map(s => s.quantidade);
+            const cores = statusLista.map(s => s.corHex || '#0d6efd');
+
+            if (chartStatusInstance) {
+                chartStatusInstance.destroy();
+            }
+
+            chartStatusInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: valores,
+                        backgroundColor: cores,
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+        }
+
+        function renderizarTabelaTopProdutos(produtos) {
+            const tbody = document.getElementById('tabelaTopProdutos');
+            if (!produtos || produtos.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-muted">Nenhum produto vendido no periodo.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = produtos.map((p, idx) => `
+                <tr>
+                    <td>
+                        <span class="badge bg-secondary me-2">#${idx + 1}</span>
+                        <strong>${p.nome}</strong>
+                    </td>
+                    <td class="text-center">${p.quantidade} un</td>
+                    <td class="text-end fw-semibold">${formatarMoeda(p.faturamento)}</td>
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <div class="progress flex-grow-1 me-2" style="height: 6px;">
+                                <div class="progress-bar bg-primary" style="width: ${p.percentual}%"></div>
+                            </div>
+                            <small class="text-muted">${p.percentual}%</small>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+    </script>
+</div>
+</body>
+</html>
